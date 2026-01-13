@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ReviewIssue {
   id: string;
@@ -71,70 +72,43 @@ export default function MergeReview() {
     if (!mrUrl) {
       toast({
         title: "Merge Request URL required",
-        description: "Please enter a valid GitLab merge request URL.",
+        description: "Please enter a valid GitLab or GitHub merge request URL.",
         variant: "destructive",
       });
       return;
     }
 
     setIsLoading(true);
+    setResult(null);
     
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 4000));
-    
-    setResult({
-      mrTitle: "feat: Add user authentication module",
-      author: "john.doe",
-      filesChanged: 12,
-      linesAdded: 456,
-      linesRemoved: 89,
-      reviewTime: "1.8 minutes",
-      status: "warnings",
-      issues: [
-        {
-          id: "1",
-          file: "src/auth/login.ts",
-          line: 45,
-          severity: "error",
-          message: "Potential SQL injection vulnerability detected",
-          rule: "security/sql-injection",
-          suggestion: "Use parameterized queries instead of string concatenation",
-        },
-        {
-          id: "2",
-          file: "src/auth/login.ts",
-          line: 78,
-          severity: "warning",
-          message: "Missing error handling for async operation",
-          rule: "error-handling/async-await",
-          suggestion: "Wrap async call in try-catch block",
-        },
-        {
-          id: "3",
-          file: "src/utils/helpers.ts",
-          line: 23,
-          severity: "warning",
-          message: "Function exceeds maximum complexity threshold",
-          rule: "complexity/max-cyclomatic",
-          suggestion: "Consider breaking down into smaller functions",
-        },
-        {
-          id: "4",
-          file: "src/components/LoginForm.tsx",
-          line: 12,
-          severity: "info",
-          message: "Consider using a more descriptive variable name",
-          rule: "naming/descriptive-vars",
-        },
-      ],
-      summary: "The code review identified 1 critical security issue that should be addressed before merging. Additionally, there are 2 warnings related to code quality and 1 informational suggestion for improvement.",
-    });
-    
-    setIsLoading(false);
-    toast({
-      title: "Code review complete",
-      description: "Found 4 issues that need attention.",
-    });
+    try {
+      const { data, error } = await supabase.functions.invoke("review-merge-request", {
+        body: { mrUrl, accessToken: accessToken || undefined },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Failed to review merge request");
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      setResult(data);
+      toast({
+        title: "Code review complete",
+        description: `Found ${data.issues?.length || 0} issues that need attention.`,
+      });
+    } catch (error) {
+      console.error("Error reviewing merge request:", error);
+      toast({
+        title: "Failed to review merge request",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

@@ -1,0 +1,7 @@
+project_id = "akvsjislylxckdjeixgx"
+
+[functions.index-repository]
+verify_jwt = false
+
+[functions.review-merge-request]
+verify_jwt = false

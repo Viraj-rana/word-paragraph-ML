@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { GitBranch, Loader2, FileText, Code, Folder, CheckCircle2, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface IndexResult {
   projectName: string;
@@ -36,58 +37,36 @@ export default function RepositoryIndexer() {
     }
 
     setIsLoading(true);
+    setResult(null);
     
-    // Simulate API call - in production, this would call the edge function
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-    
-    setResult({
-      projectName: "example-project",
-      description: "A modern web application built with React and TypeScript",
-      techStack: ["React", "TypeScript", "Tailwind CSS", "Vite", "Node.js"],
-      features: [
-        "User authentication and authorization",
-        "RESTful API integration",
-        "Responsive design",
-        "Dark mode support",
-      ],
-      structure: [
-        "src/components - React components",
-        "src/pages - Page components",
-        "src/hooks - Custom React hooks",
-        "src/utils - Utility functions",
-      ],
-      readme: `# Example Project
+    try {
+      const { data, error } = await supabase.functions.invoke("index-repository", {
+        body: { repoUrl, accessToken: accessToken || undefined },
+      });
 
-## Overview
-A modern web application built with React and TypeScript.
+      if (error) {
+        throw new Error(error.message || "Failed to index repository");
+      }
 
-## Tech Stack
-- React 18
-- TypeScript 5
-- Tailwind CSS
-- Vite
+      if (data.error) {
+        throw new Error(data.error);
+      }
 
-## Features
-- User authentication and authorization
-- RESTful API integration
-- Responsive design
-- Dark mode support
-
-## Getting Started
-\`\`\`bash
-npm install
-npm run dev
-\`\`\`
-
-## License
-MIT`,
-    });
-    
-    setIsLoading(false);
-    toast({
-      title: "Repository indexed successfully",
-      description: "README file has been generated based on the repository analysis.",
-    });
+      setResult(data);
+      toast({
+        title: "Repository indexed successfully",
+        description: "README file has been generated based on the repository analysis.",
+      });
+    } catch (error) {
+      console.error("Error indexing repository:", error);
+      toast({
+        title: "Failed to index repository",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const copyToClipboard = () => {
