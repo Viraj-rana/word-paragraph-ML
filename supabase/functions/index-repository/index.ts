@@ -120,6 +120,9 @@ async function analyzeWithAI(repoInfo: any, platform: string) {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+  // Limit tree to prevent overly large prompts
+  const limitedTree = repoInfo.tree?.slice(0, 30) || [];
+
   const prompt = `Analyze this repository and generate a comprehensive README.md file.
 
 Repository Information:
@@ -133,73 +136,92 @@ Repository Information:
 Languages Used: ${JSON.stringify(repoInfo.languages || {})}
 
 File Structure (sample):
-${repoInfo.tree?.slice(0, 50).map((f: any) => `- ${f.path || f.name}`).join("\n") || "Not available"}
+${limitedTree.map((f: any) => `- ${f.path || f.name}`).join("\n") || "Not available"}
 
 Package.json (if available):
 ${repoInfo.packageJson ? JSON.stringify(repoInfo.packageJson, null, 2) : "Not available"}
 
-CRITICAL: You MUST respond with ONLY a valid JSON object, no other text before or after. The JSON must have this exact structure:
+Respond with a JSON object containing:
 {
   "projectName": "Name of the project",
-  "description": "Brief description of what the project does",
-  "techStack": ["Array of technologies/frameworks used"],
-  "features": ["Array of key features"],
-  "structure": ["Array of main directories with their purposes"],
+  "description": "Brief description (1-2 sentences)",
+  "techStack": ["Array of main technologies"],
+  "features": ["Array of key features (max 5)"],
+  "structure": ["Array of main directories (max 5)"],
   "readme": "Complete README.md content in markdown format"
-}
+}`;
 
-Make the README professional, comprehensive, and follow best practices. Include sections for: Overview, Tech Stack, Features, Getting Started, Project Structure, and License.
-Remember: Output ONLY the JSON object, nothing else.`;
+  // Add timeout to prevent edge function timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 50000);
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: "You are an expert developer who analyzes repositories and creates professional README files. You MUST respond with ONLY a valid JSON object. No markdown formatting, no code blocks, no explanatory text - just the raw JSON object." },
-        { role: "user", content: prompt },
-      ],
-      max_completion_tokens: 4000,
-      response_format: { type: "json_object" },
-    }),
-  });
-
-  if (!response.ok) {
-    if (response.status === 429) throw new Error("Rate limit exceeded. Please try again later.");
-    if (response.status === 402) throw new Error("Payment required. Please add credits to continue.");
-    throw new Error(`AI analysis failed: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
-  
-  if (!content) throw new Error("No response from AI");
-
-  // Parse JSON from response (handle potential markdown wrapping or extra text)
-  let jsonStr = content.trim();
-  
-  // Try to extract JSON from markdown code blocks
-  const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (jsonMatch) {
-    jsonStr = jsonMatch[1].trim();
-  }
-  
-  // Try to find JSON object boundaries if there's extra text
-  const jsonStart = jsonStr.indexOf('{');
-  const jsonEnd = jsonStr.lastIndexOf('}');
-  if (jsonStart !== -1 && jsonEnd !== -1 && jsonStart < jsonEnd) {
-    jsonStr = jsonStr.substring(jsonStart, jsonEnd + 1);
-  }
-  
   try {
-    return JSON.parse(jsonStr);
-  } catch (parseError) {
-    console.error("Failed to parse AI response:", content.substring(0, 500));
-    throw new Error("AI returned invalid JSON response. Please try again.");
+    console.log("Starting AI analysis for repository...");
+    
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: "You are a developer who analyzes repositories and creates README files. Respond with ONLY a valid JSON object. Keep responses concise." },
+          { role: "user", content: prompt },
+        ],
+        max_completion_tokens: 8000,
+        response_format: { type: "json_object" },
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    console.log("AI response status:", response.status);
+
+    if (!response.ok) {
+      if (response.status === 429) throw new Error("Rate limit exceeded. Please try again later.");
+      if (response.status === 402) throw new Error("Payment required. Please add credits to continue.");
+      const errorText = await response.text();
+      console.error("AI API error:", errorText);
+      throw new Error(`AI analysis failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    
+    if (!content) throw new Error("No response from AI");
+
+    console.log("AI response length:", content.length);
+
+    // Parse JSON from response (handle potential markdown wrapping or extra text)
+    let jsonStr = content.trim();
+    
+    // Try to extract JSON from markdown code blocks
+    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1].trim();
+    }
+    
+    // Try to find JSON object boundaries if there's extra text
+    const jsonStart = jsonStr.indexOf('{');
+    const jsonEnd = jsonStr.lastIndexOf('}');
+    if (jsonStart !== -1 && jsonEnd !== -1 && jsonStart < jsonEnd) {
+      jsonStr = jsonStr.substring(jsonStart, jsonEnd + 1);
+    }
+    
+    try {
+      return JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.error("Failed to parse AI response:", content.substring(0, 1000));
+      throw new Error("AI returned invalid JSON response. Please try again.");
+    }
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("AI analysis timed out. The repository may be too large to analyze.");
+    }
+    throw error;
   }
 }
 
