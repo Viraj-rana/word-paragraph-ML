@@ -152,12 +152,13 @@ If no issues or only info-level, set status to "passed".`;
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
+      model: "google/gemini-2.5-flash",
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: systemPrompt + "\n\nCRITICAL: Output ONLY the raw JSON object with no markdown formatting or code blocks." },
         { role: "user", content: userPrompt },
       ],
       max_completion_tokens: 4000,
+      response_format: { type: "json_object" },
     }),
   });
 
@@ -172,12 +173,28 @@ If no issues or only info-level, set status to "passed".`;
   
   if (!content) throw new Error("No response from AI");
 
-  // Parse JSON from response
-  let jsonStr = content;
-  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (jsonMatch) jsonStr = jsonMatch[1];
+  // Parse JSON from response (handle potential markdown wrapping or extra text)
+  let jsonStr = content.trim();
   
-  return JSON.parse(jsonStr.trim());
+  // Try to extract JSON from markdown code blocks
+  const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonMatch) {
+    jsonStr = jsonMatch[1].trim();
+  }
+  
+  // Try to find JSON object boundaries if there's extra text
+  const jsonStart = jsonStr.indexOf('{');
+  const jsonEnd = jsonStr.lastIndexOf('}');
+  if (jsonStart !== -1 && jsonEnd !== -1 && jsonStart < jsonEnd) {
+    jsonStr = jsonStr.substring(jsonStart, jsonEnd + 1);
+  }
+  
+  try {
+    return JSON.parse(jsonStr);
+  } catch (parseError) {
+    console.error("Failed to parse AI response:", content.substring(0, 500));
+    throw new Error("AI returned invalid JSON response. Please try again.");
+  }
 }
 
 serve(async (req) => {
