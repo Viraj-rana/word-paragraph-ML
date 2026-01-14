@@ -1,4 +1,4 @@
-
+The word-paragraph Artifical Intelligence which works on emotion of your face/ sign language , the AI will recoginze the emotion of the person, user with the help of voice talking, live camera and chatting.
 
 ## How can I edit this code?
 
