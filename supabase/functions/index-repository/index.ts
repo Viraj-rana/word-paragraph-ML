@@ -138,7 +138,7 @@ ${repoInfo.tree?.slice(0, 50).map((f: any) => `- ${f.path || f.name}`).join("\n"
 Package.json (if available):
 ${repoInfo.packageJson ? JSON.stringify(repoInfo.packageJson, null, 2) : "Not available"}
 
-Based on this information, provide a JSON response with the following structure:
+CRITICAL: You MUST respond with ONLY a valid JSON object, no other text before or after. The JSON must have this exact structure:
 {
   "projectName": "Name of the project",
   "description": "Brief description of what the project does",
@@ -148,7 +148,8 @@ Based on this information, provide a JSON response with the following structure:
   "readme": "Complete README.md content in markdown format"
 }
 
-Make the README professional, comprehensive, and follow best practices. Include sections for: Overview, Tech Stack, Features, Getting Started, Project Structure, and License.`;
+Make the README professional, comprehensive, and follow best practices. Include sections for: Overview, Tech Stack, Features, Getting Started, Project Structure, and License.
+Remember: Output ONLY the JSON object, nothing else.`;
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -157,12 +158,13 @@ Make the README professional, comprehensive, and follow best practices. Include 
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
+      model: "google/gemini-2.5-flash",
       messages: [
-        { role: "system", content: "You are an expert developer who analyzes repositories and creates professional README files. Always respond with valid JSON only, no markdown code blocks." },
+        { role: "system", content: "You are an expert developer who analyzes repositories and creates professional README files. You MUST respond with ONLY a valid JSON object. No markdown formatting, no code blocks, no explanatory text - just the raw JSON object." },
         { role: "user", content: prompt },
       ],
       max_completion_tokens: 4000,
+      response_format: { type: "json_object" },
     }),
   });
 
@@ -177,12 +179,28 @@ Make the README professional, comprehensive, and follow best practices. Include 
   
   if (!content) throw new Error("No response from AI");
 
-  // Parse JSON from response (handle potential markdown wrapping)
-  let jsonStr = content;
-  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (jsonMatch) jsonStr = jsonMatch[1];
+  // Parse JSON from response (handle potential markdown wrapping or extra text)
+  let jsonStr = content.trim();
   
-  return JSON.parse(jsonStr.trim());
+  // Try to extract JSON from markdown code blocks
+  const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonMatch) {
+    jsonStr = jsonMatch[1].trim();
+  }
+  
+  // Try to find JSON object boundaries if there's extra text
+  const jsonStart = jsonStr.indexOf('{');
+  const jsonEnd = jsonStr.lastIndexOf('}');
+  if (jsonStart !== -1 && jsonEnd !== -1 && jsonStart < jsonEnd) {
+    jsonStr = jsonStr.substring(jsonStart, jsonEnd + 1);
+  }
+  
+  try {
+    return JSON.parse(jsonStr);
+  } catch (parseError) {
+    console.error("Failed to parse AI response:", content.substring(0, 500));
+    throw new Error("AI returned invalid JSON response. Please try again.");
+  }
 }
 
 serve(async (req) => {
