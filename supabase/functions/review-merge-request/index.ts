@@ -145,22 +145,41 @@ If there are critical errors (severity: error), set status to "failed".
 If there are only warnings, set status to "warnings".
 If no issues or only info-level, set status to "passed".`;
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: systemPrompt + "\n\nCRITICAL: Output ONLY the raw JSON object with no markdown formatting or code blocks." },
-        { role: "user", content: userPrompt },
-      ],
-      max_completion_tokens: 4000,
-      response_format: { type: "json_object" },
-    }),
-  });
+  console.log("Starting AI analysis...");
+  
+  // Add timeout for AI request (50 seconds to stay under edge function limit)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 50000);
+  
+  let response;
+  try {
+    response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt + "\n\nCRITICAL: Output ONLY the raw JSON object with no markdown formatting or code blocks." },
+          { role: "user", content: userPrompt },
+        ],
+        max_completion_tokens: 4000,
+        response_format: { type: "json_object" },
+      }),
+      signal: controller.signal,
+    });
+  } catch (fetchError: unknown) {
+    if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+      throw new Error("AI analysis timed out. The merge request may be too large.");
+    }
+    throw fetchError;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+  
+  console.log("AI response status:", response.status);
 
   if (!response.ok) {
     if (response.status === 429) throw new Error("Rate limit exceeded. Please try again later.");
