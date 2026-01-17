@@ -65,8 +65,48 @@ export default function MergeReview() {
   const [mrUrl, setMrUrl] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [result, setResult] = useState<ReviewResult | null>(null);
   const { toast } = useToast();
+
+  const sendEmailNotification = async (reviewData: ReviewResult) => {
+    setIsSendingEmail(true);
+    try {
+      const { error } = await supabase.functions.invoke("send-review-email", {
+        body: {
+          recipientEmail: "hackteck404@gmail.com",
+          mrTitle: reviewData.mrTitle,
+          mrUrl: mrUrl,
+          author: reviewData.author,
+          filesChanged: reviewData.filesChanged,
+          linesAdded: reviewData.linesAdded,
+          linesRemoved: reviewData.linesRemoved,
+          reviewTime: reviewData.reviewTime,
+          status: reviewData.status,
+          issues: reviewData.issues,
+          summary: reviewData.summary,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Failed to send email notification");
+      }
+
+      toast({
+        title: "Email notification sent",
+        description: "Review summary has been sent to your email.",
+      });
+    } catch (error) {
+      console.error("Error sending email:", error);
+      toast({
+        title: "Failed to send email",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
 
   const handleReview = async () => {
     if (!mrUrl) {
@@ -99,6 +139,9 @@ export default function MergeReview() {
         title: "Code review complete",
         description: `Found ${data.issues?.length || 0} issues that need attention.`,
       });
+
+      // Automatically send email notification after review completes
+      await sendEmailNotification(data);
     } catch (error) {
       console.error("Error reviewing merge request:", error);
       toast({
