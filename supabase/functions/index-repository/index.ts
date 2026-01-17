@@ -121,42 +121,38 @@ async function analyzeWithAI(repoInfo: any, platform: string) {
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
   // Limit tree to prevent overly large prompts
-  const limitedTree = repoInfo.tree?.slice(0, 30) || [];
+  const limitedTree = repoInfo.tree?.slice(0, 20) || [];
 
-  const prompt = `Analyze this repository and generate a comprehensive README.md file.
+  const prompt = `Analyze this repository and generate a README.
 
-Repository Information:
+Repository:
 - Platform: ${platform}
 - Name: ${repoInfo.name || repoInfo.path}
-- Description: ${repoInfo.description || "No description provided"}
-- Default Branch: ${repoInfo.default_branch}
-- Stars: ${repoInfo.stargazers_count || repoInfo.star_count || 0}
-- Forks: ${repoInfo.forks_count || repoInfo.forks_count || 0}
+- Description: ${repoInfo.description || "No description"}
+- Branch: ${repoInfo.default_branch}
 
-Languages Used: ${JSON.stringify(repoInfo.languages || {})}
+Languages: ${JSON.stringify(repoInfo.languages || {})}
 
-File Structure (sample):
-${limitedTree.map((f: any) => `- ${f.path || f.name}`).join("\n") || "Not available"}
+Files (sample):
+${limitedTree.map((f: any) => f.path || f.name).join(", ") || "N/A"}
 
-Package.json (if available):
-${repoInfo.packageJson ? JSON.stringify(repoInfo.packageJson, null, 2) : "Not available"}
+IMPORTANT: Keep the readme field SHORT (under 1500 characters). Include only essential sections.
 
-Respond with a JSON object containing:
+Return JSON:
 {
-  "projectName": "Name of the project",
-  "description": "Brief description (1-2 sentences)",
-  "techStack": ["Array of main technologies"],
-  "features": ["Array of key features (max 5)"],
-  "structure": ["Array of main directories (max 5)"],
-  "readme": "Complete README.md content in markdown format"
+  "projectName": "string",
+  "description": "1-2 sentences",
+  "techStack": ["max 5 items"],
+  "features": ["max 5 items"],
+  "structure": ["max 5 dirs"],
+  "readme": "Short markdown README (under 1500 chars)"
 }`;
 
-  // Add timeout to prevent edge function timeout
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 50000);
 
   try {
-    console.log("Starting AI analysis for repository...");
+    console.log("Starting AI analysis...");
     
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -167,10 +163,10 @@ Respond with a JSON object containing:
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You are a developer who analyzes repositories and creates README files. Respond with ONLY a valid JSON object. Keep responses concise." },
+          { role: "system", content: "You analyze repos and create concise READMEs. Return ONLY valid JSON. Keep readme under 1500 characters." },
           { role: "user", content: prompt },
         ],
-        max_completion_tokens: 8000,
+        max_completion_tokens: 4000,
         response_format: { type: "json_object" },
       }),
       signal: controller.signal,
@@ -182,8 +178,6 @@ Respond with a JSON object containing:
     if (!response.ok) {
       if (response.status === 429) throw new Error("Rate limit exceeded. Please try again later.");
       if (response.status === 402) throw new Error("Payment required. Please add credits to continue.");
-      const errorText = await response.text();
-      console.error("AI API error:", errorText);
       throw new Error(`AI analysis failed: ${response.status}`);
     }
 
@@ -191,35 +185,68 @@ Respond with a JSON object containing:
     const content = data.choices?.[0]?.message?.content;
     
     if (!content) throw new Error("No response from AI");
-
     console.log("AI response length:", content.length);
 
-    // Parse JSON from response (handle potential markdown wrapping or extra text)
+    // Try to parse JSON, with fallback repair for truncated responses
     let jsonStr = content.trim();
     
-    // Try to extract JSON from markdown code blocks
+    // Remove markdown code blocks if present
     const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
       jsonStr = jsonMatch[1].trim();
     }
     
-    // Try to find JSON object boundaries if there's extra text
+    // Extract JSON boundaries
     const jsonStart = jsonStr.indexOf('{');
-    const jsonEnd = jsonStr.lastIndexOf('}');
-    if (jsonStart !== -1 && jsonEnd !== -1 && jsonStart < jsonEnd) {
-      jsonStr = jsonStr.substring(jsonStart, jsonEnd + 1);
+    if (jsonStart !== -1) {
+      jsonStr = jsonStr.substring(jsonStart);
     }
-    
+
     try {
       return JSON.parse(jsonStr);
     } catch (parseError) {
-      console.error("Failed to parse AI response:", content.substring(0, 1000));
-      throw new Error("AI returned invalid JSON response. Please try again.");
+      console.error("Initial parse failed, attempting repair...");
+      
+      // Try to repair truncated JSON by closing open strings and brackets
+      let repaired = jsonStr;
+      
+      // Count brackets to determine what's missing
+      const openBraces = (repaired.match(/{/g) || []).length;
+      const closeBraces = (repaired.match(/}/g) || []).length;
+      const openBrackets = (repaired.match(/\[/g) || []).length;
+      const closeBrackets = (repaired.match(/]/g) || []).length;
+      
+      // Check if we're inside an unclosed string (for readme field)
+      const lastQuoteIndex = repaired.lastIndexOf('"');
+      const afterLastQuote = repaired.substring(lastQuoteIndex + 1);
+      
+      // If truncated inside a string, close it
+      if (!afterLastQuote.includes('"') && lastQuoteIndex > 0) {
+        repaired = repaired + '..."';
+      }
+      
+      // Close any open arrays
+      for (let i = 0; i < openBrackets - closeBrackets; i++) {
+        repaired += ']';
+      }
+      
+      // Close any open objects
+      for (let i = 0; i < openBraces - closeBraces; i++) {
+        repaired += '}';
+      }
+      
+      try {
+        console.log("Attempting to parse repaired JSON...");
+        return JSON.parse(repaired);
+      } catch (repairError) {
+        console.error("Failed to parse AI response:", content.substring(0, 500));
+        throw new Error("AI returned invalid JSON. Please try again.");
+      }
     }
   } catch (error) {
     clearTimeout(timeoutId);
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("AI analysis timed out. The repository may be too large to analyze.");
+      throw new Error("AI analysis timed out. Repository may be too large.");
     }
     throw error;
   }
