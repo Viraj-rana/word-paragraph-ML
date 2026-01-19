@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { GitBranch, Loader2, FileText, Code, Folder, CheckCircle2, Copy, RefreshCw } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { GitBranch, Loader2, FileText, Code, Folder, CheckCircle2, Copy, RefreshCw, Database, Sparkles, FileCode } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -19,13 +20,56 @@ interface IndexResult {
   readme: string;
 }
 
+type LoadingStep = "idle" | "fetching" | "analyzing" | "generating" | "complete";
+
+const STEPS: { key: LoadingStep; label: string; icon: typeof GitBranch }[] = [
+  { key: "fetching", label: "Fetching repository data", icon: Database },
+  { key: "analyzing", label: "Analyzing codebase", icon: Sparkles },
+  { key: "generating", label: "Generating README", icon: FileCode },
+];
+
 export default function RepositoryIndexer() {
   const [repoUrl, setRepoUrl] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [currentStep, setCurrentStep] = useState<LoadingStep>("idle");
+  const [stepProgress, setStepProgress] = useState(0);
   const [result, setResult] = useState<IndexResult | null>(null);
   const [hasError, setHasError] = useState(false);
   const { toast } = useToast();
+
+  // Simulate progress through steps during loading
+  useEffect(() => {
+    if (!isLoading) {
+      setCurrentStep("idle");
+      setStepProgress(0);
+      return;
+    }
+
+    // Step 1: Fetching (0-2s)
+    setCurrentStep("fetching");
+    setStepProgress(0);
+    
+    const progressInterval = setInterval(() => {
+      setStepProgress(prev => Math.min(prev + 2, 100));
+    }, 100);
+
+    const step2Timer = setTimeout(() => {
+      setCurrentStep("analyzing");
+      setStepProgress(0);
+    }, 2000);
+
+    const step3Timer = setTimeout(() => {
+      setCurrentStep("generating");
+      setStepProgress(0);
+    }, 5000);
+
+    return () => {
+      clearInterval(progressInterval);
+      clearTimeout(step2Timer);
+      clearTimeout(step3Timer);
+    };
+  }, [isLoading]);
 
   const handleIndex = async () => {
     if (!repoUrl) {
@@ -54,6 +98,8 @@ export default function RepositoryIndexer() {
         throw new Error(data.error);
       }
 
+      setCurrentStep("complete");
+      setStepProgress(100);
       setResult(data);
       toast({
         title: "Repository indexed successfully",
@@ -141,7 +187,7 @@ export default function RepositoryIndexer() {
                   {isLoading ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Analyzing Repository...
+                      Indexing...
                     </>
                   ) : (
                     <>
@@ -161,6 +207,51 @@ export default function RepositoryIndexer() {
                   </Button>
                 )}
               </div>
+
+              {/* Progress Steps */}
+              {isLoading && (
+                <div className="space-y-3 pt-4 border-t border-border/50 animate-fade-in">
+                  {STEPS.map((step, index) => {
+                    const StepIcon = step.icon;
+                    const stepIndex = STEPS.findIndex(s => s.key === currentStep);
+                    const isActive = step.key === currentStep;
+                    const isComplete = index < stepIndex || currentStep === "complete";
+                    const isPending = index > stepIndex;
+
+                    return (
+                      <div key={step.key} className="space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <div className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
+                            isComplete ? "bg-success text-success-foreground" :
+                            isActive ? "bg-primary text-primary-foreground" :
+                            "bg-muted text-muted-foreground"
+                          }`}>
+                            {isComplete ? (
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                            ) : isActive ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <StepIcon className="h-3.5 w-3.5" />
+                            )}
+                          </div>
+                          <span className={`text-sm font-medium transition-colors ${
+                            isComplete ? "text-success" :
+                            isActive ? "text-foreground" :
+                            "text-muted-foreground"
+                          }`}>
+                            {step.label}
+                          </span>
+                        </div>
+                        {isActive && (
+                          <div className="ml-8">
+                            <Progress value={stepProgress} className="h-1.5" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
 
