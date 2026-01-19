@@ -166,7 +166,7 @@ Return JSON:
           { role: "system", content: "You analyze repos and create concise READMEs. Return ONLY valid JSON. Keep readme under 1500 characters." },
           { role: "user", content: prompt },
         ],
-        max_completion_tokens: 8000,
+        max_completion_tokens: 4000,
         response_format: { type: "json_object" },
       }),
       signal: controller.signal,
@@ -206,35 +206,26 @@ Return JSON:
       return JSON.parse(jsonStr);
     } catch (parseError) {
       console.error("Initial parse failed, attempting repair...");
-      console.log("Raw content to repair:", jsonStr.substring(0, 300));
       
-      // More robust JSON repair for truncated responses
+      // Try to repair truncated JSON by closing open strings and brackets
       let repaired = jsonStr;
       
-      // Remove any trailing incomplete key-value pairs (e.g., `"key": "incom`)
-      // This regex finds the last complete key-value pair
-      const lastCompleteMatch = repaired.match(/^([\s\S]*"[^"]+"\s*:\s*(?:"[^"]*"|[\d.]+|true|false|null|\[[^\]]*\]|\{[^}]*\}))\s*,?\s*"[^"]*$/);
-      if (lastCompleteMatch) {
-        repaired = lastCompleteMatch[1];
-      }
-      
-      // If still inside an unclosed string value, try to close it cleanly
-      const quoteCount = (repaired.match(/"/g) || []).length;
-      if (quoteCount % 2 !== 0) {
-        // Odd number of quotes means we're inside a string - close it
-        repaired = repaired + '"';
-      }
-      
-      // Count brackets after fixing strings
+      // Count brackets to determine what's missing
       const openBraces = (repaired.match(/{/g) || []).length;
       const closeBraces = (repaired.match(/}/g) || []).length;
       const openBrackets = (repaired.match(/\[/g) || []).length;
       const closeBrackets = (repaired.match(/]/g) || []).length;
       
-      // Remove trailing comma if present before closing brackets
-      repaired = repaired.replace(/,\s*$/, '');
+      // Check if we're inside an unclosed string (for readme field)
+      const lastQuoteIndex = repaired.lastIndexOf('"');
+      const afterLastQuote = repaired.substring(lastQuoteIndex + 1);
       
-      // Close any open arrays first
+      // If truncated inside a string, close it
+      if (!afterLastQuote.includes('"') && lastQuoteIndex > 0) {
+        repaired = repaired + '..."';
+      }
+      
+      // Close any open arrays
       for (let i = 0; i < openBrackets - closeBrackets; i++) {
         repaired += ']';
       }
@@ -246,28 +237,10 @@ Return JSON:
       
       try {
         console.log("Attempting to parse repaired JSON...");
-        const result = JSON.parse(repaired);
-        console.log("JSON repair successful");
-        return result;
+        return JSON.parse(repaired);
       } catch (repairError) {
-        console.error("Repair failed. Content:", repaired.substring(0, 500));
-        
-        // Last resort: try to extract what we can
-        try {
-          const projectNameMatch = jsonStr.match(/"projectName"\s*:\s*"([^"]+)"/);
-          const descMatch = jsonStr.match(/"description"\s*:\s*"([^"]+)"/);
-          
-          return {
-            projectName: projectNameMatch?.[1] || "Unknown Project",
-            description: descMatch?.[1] || "Repository analysis partially completed.",
-            techStack: [],
-            features: [],
-            structure: [],
-            readme: "# " + (projectNameMatch?.[1] || "Project") + "\n\nAnalysis was truncated. Please try again."
-          };
-        } catch {
-          throw new Error("AI returned invalid JSON. Please try again.");
-        }
+        console.error("Failed to parse AI response:", content.substring(0, 500));
+        throw new Error("AI returned invalid JSON. Please try again.");
       }
     }
   } catch (error) {
