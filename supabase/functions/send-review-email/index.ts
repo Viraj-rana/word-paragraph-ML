@@ -289,9 +289,11 @@ serve(async (req: Request): Promise<Response> => {
         "Content-Type": "application/json",
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
+      // Note: Resend testing mode only allows sending to the verified account email
+      // To send to other recipients, verify a domain at resend.com/domains
       body: JSON.stringify({
         from: "Code Review <onboarding@resend.dev>",
-        to: [recipientEmail],
+        to: ["hackteck278@gmail.com"],
         subject: `${statusEmoji} Code Review: ${mrTitle} - ${status.toUpperCase()}`,
         html,
       }),
