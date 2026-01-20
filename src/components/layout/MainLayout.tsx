@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Sidebar } from "./Sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { LanguageToggle } from "@/components/LanguageToggle";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -11,6 +12,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     <div className="min-h-screen bg-background">
       <Sidebar />
       <ThemeToggle />
+      <LanguageToggle />
       <main className="ml-64 min-h-screen">
         <div className="p-8">
           {children}

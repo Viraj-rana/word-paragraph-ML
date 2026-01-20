@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { GitBranch, Loader2, FileText, Code, Folder, CheckCircle2, Copy, RefreshCw, Database, Sparkles, FileCode } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface IndexResult {
   projectName: string;
@@ -22,13 +23,8 @@ interface IndexResult {
 
 type LoadingStep = "idle" | "fetching" | "analyzing" | "generating" | "complete";
 
-const STEPS: { key: LoadingStep; label: string; icon: typeof GitBranch }[] = [
-  { key: "fetching", label: "Fetching repository data", icon: Database },
-  { key: "analyzing", label: "Analyzing codebase", icon: Sparkles },
-  { key: "generating", label: "Generating README", icon: FileCode },
-];
-
 export default function RepositoryIndexer() {
+  const { t } = useLanguage();
   const [repoUrl, setRepoUrl] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -37,6 +33,12 @@ export default function RepositoryIndexer() {
   const [result, setResult] = useState<IndexResult | null>(null);
   const [hasError, setHasError] = useState(false);
   const { toast } = useToast();
+
+  const STEPS: { key: LoadingStep; label: string; icon: typeof GitBranch }[] = [
+    { key: "fetching", label: t("indexer.fetching"), icon: Database },
+    { key: "analyzing", label: t("indexer.analyzing"), icon: Sparkles },
+    { key: "generating", label: t("indexer.generating"), icon: FileCode },
+  ];
 
   // Simulate progress through steps during loading
   useEffect(() => {
@@ -74,8 +76,8 @@ export default function RepositoryIndexer() {
   const handleIndex = async () => {
     if (!repoUrl) {
       toast({
-        title: "Repository URL required",
-        description: "Please enter a valid GitLab or GitHub repository URL.",
+        title: t("indexer.repoUrlRequired"),
+        description: t("indexer.repoUrlRequiredDesc"),
         variant: "destructive",
       });
       return;
@@ -102,14 +104,14 @@ export default function RepositoryIndexer() {
       setStepProgress(100);
       setResult(data);
       toast({
-        title: "Repository indexed successfully",
-        description: "README file has been generated based on the repository analysis.",
+        title: t("indexer.indexedSuccess"),
+        description: t("indexer.indexedSuccessDesc"),
       });
     } catch (error) {
       console.error("Error indexing repository:", error);
       setHasError(true);
       toast({
-        title: "Failed to index repository",
+        title: t("indexer.indexFailed"),
         description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive",
       });
@@ -122,8 +124,8 @@ export default function RepositoryIndexer() {
     if (result?.readme) {
       navigator.clipboard.writeText(result.readme);
       toast({
-        title: "Copied to clipboard",
-        description: "README content has been copied.",
+        title: t("indexer.copiedToClipboard"),
+        description: t("indexer.copiedDesc"),
       });
     }
   };
@@ -132,9 +134,9 @@ export default function RepositoryIndexer() {
     <MainLayout>
       <div className="space-y-8 animate-fade-in">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Repository Indexer</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t("indexer.title")}</h1>
           <p className="mt-2 text-muted-foreground">
-            Analyze a repository and generate a comprehensive README file.
+            {t("indexer.description")}
           </p>
         </div>
 
@@ -144,18 +146,18 @@ export default function RepositoryIndexer() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <GitBranch className="h-5 w-5 text-primary" />
-                Repository Details
+                {t("indexer.repoDetails")}
               </CardTitle>
               <CardDescription>
-                Enter the repository URL and optional access token for private repos.
+                {t("indexer.repoDetailsDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="repo-url">Repository URL</Label>
+                <Label htmlFor="repo-url">{t("indexer.repoUrl")}</Label>
                 <Input
                   id="repo-url"
-                  placeholder="https://gitlab.com/username/repo or https://github.com/username/repo"
+                  placeholder={t("indexer.repoUrlPlaceholder")}
                   value={repoUrl}
                   onChange={(e) => setRepoUrl(e.target.value)}
                   className="font-mono text-sm"
@@ -163,18 +165,18 @@ export default function RepositoryIndexer() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="access-token">
-                  Access Token <span className="text-muted-foreground">(for private repos)</span>
+                  {t("indexer.accessToken")} <span className="text-muted-foreground">{t("indexer.forPrivateRepos")}</span>
                 </Label>
                 <Input
                   id="access-token"
                   type="password"
-                  placeholder="glpat-xxxx or ghp_xxxx"
+                  placeholder={t("indexer.tokenPlaceholder")}
                   value={accessToken}
                   onChange={(e) => setAccessToken(e.target.value)}
                   className="font-mono text-sm"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Required for private repositories. Token is not stored.
+                  {t("indexer.tokenNote")}
                 </p>
               </div>
               <div className="flex gap-2">
@@ -187,12 +189,12 @@ export default function RepositoryIndexer() {
                   {isLoading ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Indexing...
+                      {t("indexer.indexing")}
                     </>
                   ) : (
                     <>
                       <GitBranch className="h-4 w-4" />
-                      Index Repository
+                      {t("indexer.indexRepo")}
                     </>
                   )}
                 </Button>
@@ -203,7 +205,7 @@ export default function RepositoryIndexer() {
                     className="shrink-0"
                   >
                     <RefreshCw className="h-4 w-4" />
-                    Retry
+                    {t("indexer.retry")}
                   </Button>
                 )}
               </div>
@@ -216,7 +218,6 @@ export default function RepositoryIndexer() {
                     const stepIndex = STEPS.findIndex(s => s.key === currentStep);
                     const isActive = step.key === currentStep;
                     const isComplete = index < stepIndex || currentStep === "complete";
-                    const isPending = index > stepIndex;
 
                     return (
                       <div key={step.key} className="space-y-1.5">
@@ -262,7 +263,7 @@ export default function RepositoryIndexer() {
                 <CardTitle className="flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <CheckCircle2 className="h-5 w-5 text-success" />
-                    Analysis Complete
+                    {t("indexer.analysisComplete")}
                   </span>
                   <Badge variant="secondary" className="font-mono">
                     {result.projectName}
@@ -271,7 +272,7 @@ export default function RepositoryIndexer() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Tech Stack</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">{t("indexer.techStack")}</h4>
                   <div className="flex flex-wrap gap-2">
                     {result.techStack.map((tech) => (
                       <Badge key={tech} className="bg-primary/10 text-primary border-primary/20">
@@ -282,7 +283,7 @@ export default function RepositoryIndexer() {
                   </div>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Key Features</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">{t("indexer.keyFeatures")}</h4>
                   <ul className="space-y-1">
                     {result.features.map((feature) => (
                       <li key={feature} className="flex items-center gap-2 text-sm">
@@ -293,7 +294,7 @@ export default function RepositoryIndexer() {
                   </ul>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Project Structure</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">{t("indexer.projectStructure")}</h4>
                   <ul className="space-y-1">
                     {result.structure.map((item) => (
                       <li key={item} className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
@@ -314,11 +315,11 @@ export default function RepositoryIndexer() {
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" />
-                Generated README.md
+                {t("indexer.generatedReadme")}
               </CardTitle>
               <Button variant="outline" size="sm" onClick={copyToClipboard}>
                 <Copy className="h-4 w-4 mr-2" />
-                Copy
+                {t("indexer.copy")}
               </Button>
             </CardHeader>
             <CardContent>

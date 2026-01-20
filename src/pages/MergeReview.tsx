@@ -20,6 +20,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ReviewIssue {
   id: string;
@@ -62,6 +63,7 @@ const severityConfig = {
 };
 
 export default function MergeReview() {
+  const { t } = useLanguage();
   const [mrUrl, setMrUrl] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -93,13 +95,13 @@ export default function MergeReview() {
       }
 
       toast({
-        title: "Email notification sent",
-        description: "Review summary has been sent to your email.",
+        title: t("review.emailSent"),
+        description: t("review.emailSentDesc"),
       });
     } catch (error) {
       console.error("Error sending email:", error);
       toast({
-        title: "Failed to send email",
+        title: t("review.emailFailed"),
         description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive",
       });
@@ -111,8 +113,8 @@ export default function MergeReview() {
   const handleReview = async () => {
     if (!mrUrl) {
       toast({
-        title: "Merge Request URL required",
-        description: "Please enter a valid GitLab or GitHub merge request URL.",
+        title: t("review.mrUrlRequired"),
+        description: t("review.mrUrlRequiredDesc"),
         variant: "destructive",
       });
       return;
@@ -136,8 +138,8 @@ export default function MergeReview() {
 
       setResult(data);
       toast({
-        title: "Code review complete",
-        description: `Found ${data.issues?.length || 0} issues that need attention.`,
+        title: t("review.reviewComplete"),
+        description: t("review.reviewCompleteDesc").replace("{count}", String(data.issues?.length || 0)),
       });
 
       // Automatically send email notification after review completes
@@ -145,7 +147,7 @@ export default function MergeReview() {
     } catch (error) {
       console.error("Error reviewing merge request:", error);
       toast({
-        title: "Failed to review merge request",
+        title: t("review.reviewFailed"),
         description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive",
       });
@@ -158,9 +160,9 @@ export default function MergeReview() {
     <MainLayout>
       <div className="space-y-8 animate-fade-in">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Merge Request Review</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t("review.title")}</h1>
           <p className="mt-2 text-muted-foreground">
-            Analyze merge requests against your style guide and best practices.
+            {t("review.description")}
           </p>
         </div>
 
@@ -169,19 +171,19 @@ export default function MergeReview() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <GitMerge className="h-5 w-5 text-primary" />
-              Review Configuration
+              {t("review.config")}
             </CardTitle>
             <CardDescription>
-              Enter the merge request URL to perform automated code review.
+              {t("review.configDesc")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="mr-url">Merge Request URL</Label>
+                <Label htmlFor="mr-url">{t("review.mrUrl")}</Label>
                 <Input
                   id="mr-url"
-                  placeholder="https://gitlab.com/group/project/-/merge_requests/123"
+                  placeholder={t("review.mrUrlPlaceholder")}
                   value={mrUrl}
                   onChange={(e) => setMrUrl(e.target.value)}
                   className="font-mono text-sm"
@@ -189,12 +191,12 @@ export default function MergeReview() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="mr-token">
-                  Access Token <span className="text-muted-foreground">(for private repos)</span>
+                  {t("review.accessToken")} <span className="text-muted-foreground">{t("review.forPrivateRepos")}</span>
                 </Label>
                 <Input
                   id="mr-token"
                   type="password"
-                  placeholder="glpat-xxxx"
+                  placeholder={t("review.tokenPlaceholder")}
                   value={accessToken}
                   onChange={(e) => setAccessToken(e.target.value)}
                   className="font-mono text-sm"
@@ -210,12 +212,12 @@ export default function MergeReview() {
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Analyzing Code...
+                  {t("review.analyzing")}
                 </>
               ) : (
                 <>
                   <GitMerge className="h-4 w-4" />
-                  Start Review
+                  {t("review.startReview")}
                 </>
               )}
             </Button>
@@ -252,7 +254,7 @@ export default function MergeReview() {
                     {result.status === "passed" && <CheckCircle2 className="h-3 w-3 mr-1" />}
                     {result.status === "warnings" && <AlertTriangle className="h-3 w-3 mr-1" />}
                     {result.status === "failed" && <XCircle className="h-3 w-3 mr-1" />}
-                    {result.status.charAt(0).toUpperCase() + result.status.slice(1)}
+                    {result.status === "passed" ? t("review.passed") : result.status === "failed" ? t("review.failed") : result.status.charAt(0).toUpperCase() + result.status.slice(1)}
                   </Badge>
                 </div>
               </CardHeader>
@@ -260,15 +262,15 @@ export default function MergeReview() {
                 <div className="grid grid-cols-3 gap-4 mb-4">
                   <div className="text-center p-3 rounded-lg bg-secondary/50">
                     <p className="text-2xl font-bold">{result.filesChanged}</p>
-                    <p className="text-xs text-muted-foreground">Files Changed</p>
+                    <p className="text-xs text-muted-foreground">{t("review.filesChanged")}</p>
                   </div>
                   <div className="text-center p-3 rounded-lg bg-success/10">
                     <p className="text-2xl font-bold text-success">+{result.linesAdded}</p>
-                    <p className="text-xs text-muted-foreground">Lines Added</p>
+                    <p className="text-xs text-muted-foreground">{t("review.linesAdded")}</p>
                   </div>
                   <div className="text-center p-3 rounded-lg bg-destructive/10">
                     <p className="text-2xl font-bold text-destructive">-{result.linesRemoved}</p>
-                    <p className="text-xs text-muted-foreground">Lines Removed</p>
+                    <p className="text-xs text-muted-foreground">{t("review.linesRemoved")}</p>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">{result.summary}</p>
@@ -280,19 +282,19 @@ export default function MergeReview() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileCode className="h-5 w-5 text-primary" />
-                  Issues Found
+                  {t("review.issuesFound")}
                   <Badge variant="secondary">{result.issues.length}</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="all" className="w-full">
                   <TabsList className="mb-4">
-                    <TabsTrigger value="all">All ({result.issues.length})</TabsTrigger>
+                    <TabsTrigger value="all">{t("review.all")} ({result.issues.length})</TabsTrigger>
                     <TabsTrigger value="errors">
-                      Errors ({result.issues.filter(i => i.severity === "error").length})
+                      {t("review.errors")} ({result.issues.filter(i => i.severity === "error").length})
                     </TabsTrigger>
                     <TabsTrigger value="warnings">
-                      Warnings ({result.issues.filter(i => i.severity === "warning").length})
+                      {t("review.warnings")} ({result.issues.filter(i => i.severity === "warning").length})
                     </TabsTrigger>
                   </TabsList>
                   
