@@ -17,10 +17,67 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
-  Loader2
+  Loader2,
+  HelpCircle,
+  X,
+  ExternalLink,
+  Lock
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTokenStorage } from "@/hooks/useTokenStorage";
+
+// Dialog Component (inline since we don't have it)
+const Dialog = ({ open, onOpenChange, children }: { open: boolean; onOpenChange: (open: boolean) => void; children: React.ReactNode }) => {
+  if (!open) return null;
+  
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in">
+      <div 
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm" 
+        onClick={() => onOpenChange(false)}
+      />
+      <div className="relative bg-background rounded-lg shadow-2xl max-w-3xl w-full mx-4 max-h-[85vh] overflow-y-auto animate-scale-in">
+        {children}
+      </div>
+    </div>
+  );
+};
+
+const DialogContent = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+  <div className={className}>
+    {children}
+  </div>
+);
+
+const DialogHeader = ({ children }: { children: React.ReactNode }) => (
+  <div className="flex flex-col space-y-1.5 text-center sm:text-left p-6 border-b">
+    {children}
+  </div>
+);
+
+const DialogTitle = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+  <h2 className={`text-2xl font-semibold leading-none tracking-tight ${className}`}>
+    {children}
+  </h2>
+);
+
+const DialogDescription = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+  <p className={`text-sm text-muted-foreground ${className}`}>
+    {children}
+  </p>
+);
+
+const DialogClose = ({ onClick }: { onClick: () => void }) => (
+  <Button
+    variant="ghost"
+    size="icon"
+    className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none"
+    onClick={onClick}
+  >
+    <X className="h-4 w-4" />
+    <span className="sr-only">Close</span>
+  </Button>
+);
 
 export default function Settings() {
   const { 
@@ -44,6 +101,9 @@ export default function Settings() {
     slack: false,
     inApp: true,
   });
+  const [gitlabDialogOpen, setGitlabDialogOpen] = useState(false);
+  const [githubDialogOpen, setGithubDialogOpen] = useState(false);
+  
   const { toast } = useToast();
 
   // Initialize local tokens from stored tokens
@@ -192,7 +252,29 @@ export default function Settings() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="gitlab-token">Personal Access Token</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="gitlab-token" className="flex items-center gap-2">
+                      Personal Access Token
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => setGitlabDialogOpen(true)}
+                      >
+                        <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </Label>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="text-xs h-6"
+                      onClick={() => window.open("https://gitlab.com/-/profile/personal_access_tokens", "_blank")}
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Go to GitLab Token Settings
+                    </Button>
+                  </div>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <Input
@@ -204,7 +286,8 @@ export default function Settings() {
                           setLocalGitlabToken(e.target.value);
                           setGitlabVerified(false);
                         }}
-                        className="font-mono text-sm pr-10"
+                        className="font-mono text-sm pr-10 cursor-pointer"
+                        onClick={() => setGitlabDialogOpen(true)}
                       />
                       <Button
                         type="button"
@@ -260,7 +343,29 @@ export default function Settings() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="github-token">Personal Access Token</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="github-token" className="flex items-center gap-2">
+                      Personal Access Token
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => setGithubDialogOpen(true)}
+                      >
+                        <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </Label>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="text-xs h-6"
+                      onClick={() => window.open("https://github.com/settings/tokens", "_blank")}
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Go to GitHub Token Settings
+                    </Button>
+                  </div>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <Input
@@ -272,7 +377,8 @@ export default function Settings() {
                           setLocalGithubToken(e.target.value);
                           setGithubVerified(false);
                         }}
-                        className="font-mono text-sm pr-10"
+                        className="font-mono text-sm pr-10 cursor-pointer"
+                        onClick={() => setGithubDialogOpen(true)}
                       />
                       <Button
                         type="button"
@@ -310,6 +416,7 @@ export default function Settings() {
             </Card>
           </TabsContent>
 
+          {/* Rest of your existing tabs content remains the same */}
           <TabsContent value="review" className="space-y-6">
             <Card glow>
               <CardHeader>
@@ -455,6 +562,286 @@ export default function Settings() {
           </Button>
         </div>
       </div>
+
+      {/* GitLab Dialog */}
+      <Dialog open={gitlabDialogOpen} onOpenChange={setGitlabDialogOpen}>
+        <DialogContent className="p-0 space-y-1">
+          <DialogHeader className="text-left bg-gradient-to-r from-blue-500/10 to-purple-500/10 p-6">
+            <DialogTitle className="h-5 flex items-center gap-3">
+              <Lock className="h-5 w-5 text-primary" />
+              <div>
+                <div className="text-xl font-bold">Security & Connection Guide</div>
+                <div className="text-sm font-semibold text-primary">SAFE & PRIVATE DATA SYNCHRONIZATION</div>
+              </div>
+            </DialogTitle>
+            <DialogClose onClick={() => setGitlabDialogOpen(false)} />
+          </DialogHeader>
+          
+          <div className="p-6 space-y-2">
+            {/* Platform Selection this the guidance class dialog box */}
+            <div className="flex items-center gap-6 border-b pb-2 h-5">
+              {/* <div className="text-sm font-medium">GitHub</div> */}
+              <div className="text-xs font-bold text-primary flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-primary"></div>
+                GitLab
+              </div>
+            </div>
+
+            {/* Security Pledge */}
+            <div className="space-y-2">
+              <div className="text-sm font-semibold">Security Pledge</div>
+              
+              <div className="bg-muted/70 rounded-lg p-5 space-y-2">
+                {/* Generating GitLab Token Section */}
+                <div className=" text-xs space-y-3">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <Key className="text-sm h-5 w-5" />
+                    Generating a GitLab Token
+                  </h3>
+                  <p className="text-muted-foreground">
+                    To access GitLab Merge Requests, create a Personal Access Token with API read rights.
+                  </p>
+                  
+                  <div className="space-y-3 pl-4 border-l-2 border-primary/30">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold">
+                        1
+                      </div>
+                      <p>Go to your <strong>User Settings → Access Tokens</strong>.</p>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold">
+                        2
+                      </div>
+                      <p>Set a name and select the <code className="px-2 py-1 bg-muted rounded">read_api</code> scope.</p>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold">
+                        3
+                      </div>
+                      <p>Set an expiration date (we recommend 7-30 days for security).</p>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold">
+                        4
+                      </div>
+                      <p>Click <strong>Create personal access token</strong> and copy the result.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Enterprise Privacy Commitment */}
+                <div className="text-xs space-y-3 pt-4 border-t">
+                  <h3 className="text-sm font-semibold">Enterprise Privacy Commitment</h3>
+                  <p className="text-muted-foreground">
+                    We value your source code's confidentiality above all else. Our architecture is built to be stateless and local.
+                  </p>
+                </div>
+
+                {/* Zero Server Persistence */}
+                <div className="space-y-2 pt-4 border-t">
+                  <h4 className="text-xs font-semibold flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    ZERO SERVER PERSISTENCE
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Your code diffs and access tokens are never saved on our backend. They reside temporarily in your browser's RAM during analysis.
+                  </p>
+                </div>
+
+                {/* Browse-only Tokens */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold flex items-center gap-2">
+                    <Key className="h-4 w-4" />
+                    BROWSE-ONLY TOKENS
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Access tokens are only used to initiate a direct handshake with GitHub/GitLab. They are cleared when the session ends or the tab is closed.
+                  </p>
+                </div>
+
+                {/* HTTPS Encryption */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold flex items-center gap-2">
+                    <Lock className="h-4 w-4" />
+                    HTTPS ENCRYPTION
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Every bit of data is encrypted in transit using industry-standard TLS 1.3 certificates.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-between pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => window.open("https://gitlab.com/-/profile/personal_access_tokens", "_blank")}
+                className="text-xs gap-2 w-30 h-15"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Go to GitLab Token Settings
+              </Button>
+              <Button
+                onClick={() => setGitlabDialogOpen(false)}
+                className=" text-xs gap-2 w-30 h-15"
+              >
+                Got it, I'm ready
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* GitHub Dialog */}
+      <Dialog open={githubDialogOpen} onOpenChange={setGithubDialogOpen}>
+        <DialogContent className="p-0 space-y-1">
+          <DialogHeader className=" text-left bg-gradient-to-r from-green-500/10 to-blue-500/10 p-6">
+            <DialogTitle className="h-5 flex items-center gap-3">
+              <Lock className="h-5 w-5 text-primary" />
+              <div>
+                <div className="text-lg font-bold">Security & Connection Guide</div>
+                <div className="text-xs font-semibold text-primary">SAFE & PRIVATE DATA SYNCHRONIZATION</div>
+              </div>
+            </DialogTitle>
+            <DialogClose onClick={() => setGithubDialogOpen(false)} />
+          </DialogHeader>
+          
+          <div className="p-6 space-y-2">
+            {/* Platform Selection */}
+            <div className="flex items-center gap-6 border-b pb-2 h-5">
+              <div className="text-xs font-bold text-primary flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-primary"></div>
+                GitHub
+              </div>
+            </div>
+
+            {/* Security Pledge */}
+            <div className="space-y-1">
+              <div className="text-sm font-semibold">Security Pledge</div>
+              {/* this is the base dialog box for background changes*/}
+              <div className="bg-muted/70 rounded-lg p-5 space-y-2">
+                {/* Generating GitHub Token Section */}
+                <div className="text-xs space-y-3">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <Key className="h-5 w-5" />
+                    Generating a GitHub Token
+                  </h3>
+                  <p className="text-muted-foreground">
+                    To review private repositories, WinSolution requires a Personal Access Token (Classic).
+                  </p>
+                  
+                  <div className="space-y-3 pl-4 border-l-2 border-primary/30">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold">
+                        1
+                      </div>
+                      <div>
+                        <p><strong>Navigate to Settings → Developer settings → Personal access tokens → Tokens (classic).</strong></p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold">
+                        2
+                      </div>
+                      <div>
+                        <p>Click <strong>Generate new token (classic)</strong>. Give it a descriptive name like "WinSolution AI Review".</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold">
+                        3
+                      </div>
+                      <div>
+                        <p>Select the <code className="px-2 py-1 bg-muted rounded">'repo'</code> scope. This is required to read your private code diffs.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold">
+                        4
+                      </div>
+                      <div>
+                        <p>Click <strong>Generate token</strong> and paste it into the Repository Access field.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Enterprise Privacy Commitment */}
+                <div className="text-xs space-y-2 pt-4 border-t">
+                  <h3 className="text-sm font-semibold">Enterprise Privacy Commitment</h3>
+                  <p className="text-muted-foreground">
+                    We value your source code's confidentiality above all else. Our architecture is built to be stateless and local.
+                  </p>
+                </div>
+
+                {/* Zero Server Persistence */}
+                <div className="text-xs space-y-2 pt-4 border-t">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    ZERO SERVER PERSISTENCE
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Your code diffs and access tokens are never saved on our backend. They reside temporarily in your browser's RAM during analysis.
+                  </p>
+                </div>
+
+                {/* Browse-only Tokens */}
+                <div className="text-xs space-y-2">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <Key className="h-4 w-4" />
+                    BROWSE-ONLY TOKENS
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Access tokens are only used to initiate a direct handshake with GitHub/GitLab. They are cleared when the session ends or the tab is closed.
+                  </p>
+                </div>
+
+                {/* AI Safety Protocols */}
+                <div className="text-xs space-y-2">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    AI SAFETY PROTOCOLS
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    We use the Google Gemini 3 Enterprise model, which ensures that your code is not stored or used for training.
+                  </p>
+                </div>
+
+                {/* HTTPS Encryption */}
+                <div className="text-xs space-y-2">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <Lock className="h-4 w-4" />
+                    HTTPS ENCRYPTION
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Every bit of data is encrypted in transit using industry-standard TLS 1.3 certificates.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-between pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => window.open("https://github.com/settings/tokens", "_blank")}
+                className="text-xs gap-2 w-30 h-15"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Go to GitHub Token Settings
+              </Button>
+              <Button
+                onClick={() => setGithubDialogOpen(false)}
+                className="text-xs gap-2 w-30 h-15"
+              >
+                Got it, I'm ready
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }
