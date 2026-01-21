@@ -70,6 +70,16 @@ const translations: Record<Language, Record<string, string>> = {
     "review.emailSent": "Email notification sent",
     "review.emailSentDesc": "Review summary has been sent to your email.",
     "review.emailFailed": "Failed to send email",
+    "review.openMRs": "Open Merge Requests",
+    "review.fetchMRs": "Fetch Open MRs",
+    "review.fetchingMRs": "Fetching...",
+    "review.noTokens": "Add your GitHub or GitLab token in Settings to auto-fetch MRs",
+    "review.noOpenMRs": "No open merge requests found",
+    "review.reviewHistory": "Review History",
+    "review.clearHistory": "Clear History",
+    "review.noHistory": "No reviews yet",
+    "review.selectToReview": "Select to review",
+    "review.savedToHistory": "Review saved to history",
   },
   ru: {
     // Repository Indexer
@@ -132,6 +142,16 @@ const translations: Record<Language, Record<string, string>> = {
     "review.emailSent": "Email уведомление отправлено",
     "review.emailSentDesc": "Сводка проверки отправлена на вашу почту.",
     "review.emailFailed": "Не удалось отправить email",
+    "review.openMRs": "Открытые Merge Requests",
+    "review.fetchMRs": "Загрузить открытые MR",
+    "review.fetchingMRs": "Загрузка...",
+    "review.noTokens": "Добавьте токен GitHub или GitLab в Настройках для автозагрузки MR",
+    "review.noOpenMRs": "Открытых merge requests не найдено",
+    "review.reviewHistory": "История проверок",
+    "review.clearHistory": "Очистить историю",
+    "review.noHistory": "Проверок ещё нет",
+    "review.selectToReview": "Выбрать для проверки",
+    "review.savedToHistory": "Проверка сохранена в историю",
   },
 };
 

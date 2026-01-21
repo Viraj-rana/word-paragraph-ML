@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,22 +16,128 @@ import {
   Shield,
   CheckCircle2,
   Eye,
-  EyeOff
+  EyeOff,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useTokenStorage } from "@/hooks/useTokenStorage";
 
 export default function Settings() {
-  const [gitlabToken, setGitlabToken] = useState("");
-  const [githubToken, setGithubToken] = useState("");
+  const { 
+    githubToken, 
+    gitlabToken, 
+    setGithubToken, 
+    setGitlabToken 
+  } = useTokenStorage();
+  
+  const [localGitlabToken, setLocalGitlabToken] = useState("");
+  const [localGithubToken, setLocalGithubToken] = useState("");
   const [showGitlabToken, setShowGitlabToken] = useState(false);
   const [showGithubToken, setShowGithubToken] = useState(false);
   const [reviewMode, setReviewMode] = useState("warning");
+  const [verifyingGitlab, setVerifyingGitlab] = useState(false);
+  const [verifyingGithub, setVerifyingGithub] = useState(false);
+  const [gitlabVerified, setGitlabVerified] = useState(false);
+  const [githubVerified, setGithubVerified] = useState(false);
   const [notifications, setNotifications] = useState({
     email: true,
     slack: false,
     inApp: true,
   });
   const { toast } = useToast();
+
+  // Initialize local tokens from stored tokens
+  useEffect(() => {
+    if (githubToken) {
+      setLocalGithubToken(githubToken);
+      setGithubVerified(true);
+    }
+    if (gitlabToken) {
+      setLocalGitlabToken(gitlabToken);
+      setGitlabVerified(true);
+    }
+  }, [githubToken, gitlabToken]);
+
+  const verifyGitlabToken = async () => {
+    if (!localGitlabToken) {
+      toast({
+        title: "Token required",
+        description: "Please enter your GitLab token first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setVerifyingGitlab(true);
+    try {
+      const response = await fetch("https://gitlab.com/api/v4/user", {
+        headers: { "PRIVATE-TOKEN": localGitlabToken },
+      });
+
+      if (response.ok) {
+        const user = await response.json();
+        setGitlabToken(localGitlabToken);
+        setGitlabVerified(true);
+        toast({
+          title: "GitLab connected",
+          description: `Successfully connected as ${user.username}`,
+        });
+      } else {
+        throw new Error("Invalid token");
+      }
+    } catch (error) {
+      setGitlabVerified(false);
+      toast({
+        title: "Verification failed",
+        description: "Invalid GitLab token. Please check and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setVerifyingGitlab(false);
+    }
+  };
+
+  const verifyGithubToken = async () => {
+    if (!localGithubToken) {
+      toast({
+        title: "Token required",
+        description: "Please enter your GitHub token first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setVerifyingGithub(true);
+    try {
+      const response = await fetch("https://api.github.com/user", {
+        headers: { 
+          "Authorization": `Bearer ${localGithubToken}`,
+          "Accept": "application/vnd.github.v3+json",
+        },
+      });
+
+      if (response.ok) {
+        const user = await response.json();
+        setGithubToken(localGithubToken);
+        setGithubVerified(true);
+        toast({
+          title: "GitHub connected",
+          description: `Successfully connected as ${user.login}`,
+        });
+      } else {
+        throw new Error("Invalid token");
+      }
+    } catch (error) {
+      setGithubVerified(false);
+      toast({
+        title: "Verification failed",
+        description: "Invalid GitHub token. Please check and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setVerifyingGithub(false);
+    }
+  };
 
   const handleSave = () => {
     toast({
@@ -73,6 +179,12 @@ export default function Settings() {
                 <CardTitle className="flex items-center gap-2">
                   <GitBranch className="h-5 w-5 text-primary" />
                   GitLab Integration
+                  {gitlabVerified && (
+                    <Badge className="bg-success/10 text-success border-success/20">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Connected
+                    </Badge>
+                  )}
                 </CardTitle>
                 <CardDescription>
                   Connect your GitLab account to enable code review on merge requests.
@@ -87,8 +199,11 @@ export default function Settings() {
                         id="gitlab-token"
                         type={showGitlabToken ? "text" : "password"}
                         placeholder="glpat-xxxxxxxxxxxxxxxxxxxx"
-                        value={gitlabToken}
-                        onChange={(e) => setGitlabToken(e.target.value)}
+                        value={localGitlabToken}
+                        onChange={(e) => {
+                          setLocalGitlabToken(e.target.value);
+                          setGitlabVerified(false);
+                        }}
                         className="font-mono text-sm pr-10"
                       />
                       <Button
@@ -105,7 +220,19 @@ export default function Settings() {
                         )}
                       </Button>
                     </div>
-                    <Button variant="outline">Verify</Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={verifyGitlabToken}
+                      disabled={verifyingGitlab}
+                    >
+                      {verifyingGitlab ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : gitlabVerified ? (
+                        <CheckCircle2 className="h-4 w-4 text-success" />
+                      ) : (
+                        "Verify & Save"
+                      )}
+                    </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Required scopes: <code className="text-primary">api</code>, <code className="text-primary">read_repository</code>
@@ -120,6 +247,12 @@ export default function Settings() {
                 <CardTitle className="flex items-center gap-2">
                   <GitBranch className="h-5 w-5 text-primary" />
                   GitHub Integration
+                  {githubVerified && (
+                    <Badge className="bg-success/10 text-success border-success/20">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Connected
+                    </Badge>
+                  )}
                 </CardTitle>
                 <CardDescription>
                   Connect your GitHub account to enable code review on pull requests.
@@ -134,8 +267,11 @@ export default function Settings() {
                         id="github-token"
                         type={showGithubToken ? "text" : "password"}
                         placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                        value={githubToken}
-                        onChange={(e) => setGithubToken(e.target.value)}
+                        value={localGithubToken}
+                        onChange={(e) => {
+                          setLocalGithubToken(e.target.value);
+                          setGithubVerified(false);
+                        }}
                         className="font-mono text-sm pr-10"
                       />
                       <Button
@@ -152,7 +288,19 @@ export default function Settings() {
                         )}
                       </Button>
                     </div>
-                    <Button variant="outline">Verify</Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={verifyGithubToken}
+                      disabled={verifyingGithub}
+                    >
+                      {verifyingGithub ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : githubVerified ? (
+                        <CheckCircle2 className="h-4 w-4 text-success" />
+                      ) : (
+                        "Verify & Save"
+                      )}
+                    </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Required scopes: <code className="text-primary">repo</code>, <code className="text-primary">read:org</code>
