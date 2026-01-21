@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,12 +15,17 @@ import {
   FileCode,
   MessageSquare,
   Clock,
-  User
+  User,
+  RefreshCw,
+  History,
+  Trash2,
+  ExternalLink
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useTokenStorage, StoredReview } from "@/hooks/useTokenStorage";
 
 interface ReviewIssue {
   id: string;
@@ -42,6 +47,17 @@ interface ReviewResult {
   status: "passed" | "warnings" | "failed";
   issues: ReviewIssue[];
   summary: string;
+}
+
+interface OpenMR {
+  id: string;
+  title: string;
+  url: string;
+  author: string;
+  createdAt: string;
+  platform: "github" | "gitlab";
+  repo: string;
+  number: number;
 }
 
 const severityConfig = {
@@ -67,9 +83,52 @@ export default function MergeReview() {
   const [mrUrl, setMrUrl] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingMRs, setIsFetchingMRs] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [result, setResult] = useState<ReviewResult | null>(null);
+  const [openMRs, setOpenMRs] = useState<OpenMR[]>([]);
   const { toast } = useToast();
+  
+  const { 
+    githubToken, 
+    gitlabToken, 
+    reviewHistory, 
+    addReviewToHistory, 
+    clearHistory,
+    hasTokens 
+  } = useTokenStorage();
+
+  // Auto-fetch MRs when tokens are available
+  useEffect(() => {
+    if (hasTokens) {
+      fetchOpenMRs();
+    }
+  }, [hasTokens, githubToken, gitlabToken]);
+
+  const fetchOpenMRs = async () => {
+    if (!githubToken && !gitlabToken) return;
+    
+    setIsFetchingMRs(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-open-mrs", {
+        body: { githubToken, gitlabToken },
+      });
+
+      if (error) throw new Error(error.message);
+      if (data.error) throw new Error(data.error);
+
+      setOpenMRs(data.mrs || []);
+    } catch (error) {
+      console.error("Error fetching open MRs:", error);
+      toast({
+        title: "Failed to fetch MRs",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsFetchingMRs(false);
+    }
+  };
 
   const sendEmailNotification = async (reviewData: ReviewResult) => {
     setIsSendingEmail(true);
@@ -123,9 +182,19 @@ export default function MergeReview() {
     setIsLoading(true);
     setResult(null);
     
+    // Determine which token to use based on URL
+    let tokenToUse = accessToken;
+    if (!tokenToUse) {
+      if (mrUrl.includes("github.com") && githubToken) {
+        tokenToUse = githubToken;
+      } else if (mrUrl.includes("gitlab.com") && gitlabToken) {
+        tokenToUse = gitlabToken;
+      }
+    }
+    
     try {
       const { data, error } = await supabase.functions.invoke("review-merge-request", {
-        body: { mrUrl, accessToken: accessToken || undefined },
+        body: { mrUrl, accessToken: tokenToUse || undefined },
       });
 
       if (error) {
@@ -137,6 +206,20 @@ export default function MergeReview() {
       }
 
       setResult(data);
+      
+      // Save to history
+      const storedReview: StoredReview = {
+        id: `${Date.now()}-${mrUrl}`,
+        mrUrl,
+        mrTitle: data.mrTitle,
+        author: data.author,
+        status: data.status,
+        issueCount: data.issues?.length || 0,
+        reviewedAt: new Date().toISOString(),
+        summary: data.summary,
+      };
+      addReviewToHistory(storedReview);
+      
       toast({
         title: t("review.reviewComplete"),
         description: t("review.reviewCompleteDesc").replace("{count}", String(data.issues?.length || 0)),
@@ -156,6 +239,11 @@ export default function MergeReview() {
     }
   };
 
+  const selectMRForReview = (url: string) => {
+    setMrUrl(url);
+    setResult(null);
+  };
+
   return (
     <MainLayout>
       <div className="space-y-8 animate-fade-in">
@@ -165,6 +253,84 @@ export default function MergeReview() {
             {t("review.description")}
           </p>
         </div>
+
+        {/* Open MRs Section */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <GitMerge className="h-5 w-5 text-primary" />
+                  {t("review.openMRs")}
+                </CardTitle>
+                <CardDescription>
+                  {hasTokens 
+                    ? `${openMRs.length} open merge requests found`
+                    : t("review.noTokens")
+                  }
+                </CardDescription>
+              </div>
+              {hasTokens && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchOpenMRs}
+                  disabled={isFetchingMRs}
+                >
+                  {isFetchingMRs ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  {t("review.fetchMRs")}
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {openMRs.length > 0 ? (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {openMRs.map((mr) => (
+                  <div
+                    key={mr.id}
+                    className={cn(
+                      "flex items-center justify-between p-3 rounded-lg border border-border bg-secondary/30 hover:bg-secondary/50 transition-colors cursor-pointer",
+                      mrUrl === mr.url && "ring-2 ring-primary"
+                    )}
+                    onClick={() => selectMRForReview(mr.url)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          {mr.platform === "github" ? "GitHub" : "GitLab"}
+                        </Badge>
+                        <span className="text-sm font-medium truncate">{mr.title}</span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                        <span>{mr.repo}</span>
+                        <span>#{mr.number}</span>
+                        <span>by {mr.author}</span>
+                      </div>
+                    </div>
+                    <a
+                      href={mr.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 hover:bg-secondary rounded"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            ) : hasTokens ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                {isFetchingMRs ? t("review.fetchingMRs") : t("review.noOpenMRs")}
+              </p>
+            ) : null}
+          </CardContent>
+        </Card>
 
         {/* Input Form */}
         <Card glow>
@@ -196,7 +362,7 @@ export default function MergeReview() {
                 <Input
                   id="mr-token"
                   type="password"
-                  placeholder={t("review.tokenPlaceholder")}
+                  placeholder={hasTokens ? "Using saved token" : t("review.tokenPlaceholder")}
                   value={accessToken}
                   onChange={(e) => setAccessToken(e.target.value)}
                   className="font-mono text-sm"
@@ -223,6 +389,56 @@ export default function MergeReview() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Review History */}
+        {reviewHistory.length > 0 && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <History className="h-5 w-5 text-primary" />
+                  {t("review.reviewHistory")}
+                  <Badge variant="secondary">{reviewHistory.length}</Badge>
+                </CardTitle>
+                <Button variant="ghost" size="sm" onClick={clearHistory}>
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  {t("review.clearHistory")}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {reviewHistory.map((review) => (
+                  <div
+                    key={review.id}
+                    className="flex items-center justify-between p-3 rounded-lg border border-border bg-secondary/30 hover:bg-secondary/50 transition-colors cursor-pointer"
+                    onClick={() => selectMRForReview(review.mrUrl)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          className={cn(
+                            "text-xs",
+                            review.status === "passed" && "bg-success/10 text-success border-success/20",
+                            review.status === "warnings" && "bg-warning/10 text-warning border-warning/20",
+                            review.status === "failed" && "bg-destructive/10 text-destructive border-destructive/20"
+                          )}
+                        >
+                          {review.status}
+                        </Badge>
+                        <span className="text-sm font-medium truncate">{review.mrTitle}</span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                        <span>{review.issueCount} issues</span>
+                        <span>{new Date(review.reviewedAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Results */}
         {result && (

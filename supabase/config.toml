@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.review-merge-request]
 verify_jwt = false
+
+[functions.fetch-open-mrs]
+verify_jwt = false
+
+[functions.send-review-email]
+verify_jwt = false
