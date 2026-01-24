@@ -42,6 +42,7 @@ export default function Settings() {
   const [notifications, setNotifications] = useState({
     email: true,
     slack: false,
+    telegram: true,
     inApp: true,
   });
   const { toast } = useToast();
@@ -425,6 +426,20 @@ export default function Settings() {
                       checked={notifications.slack}
                       onCheckedChange={(checked) => 
                         setNotifications({ ...notifications, slack: checked })
+                      }
+                    />
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                    <div>
+                      <p className="text-sm font-medium">Telegram notifications</p>
+                      <p className="text-xs text-muted-foreground">
+                        Send review results to your Telegram group
+                      </p>
+                    </div>
+                    <Switch 
+                      checked={notifications.telegram}
+                      onCheckedChange={(checked) => 
+                        setNotifications({ ...notifications, telegram: checked })
                       }
                     />
                   </div>
