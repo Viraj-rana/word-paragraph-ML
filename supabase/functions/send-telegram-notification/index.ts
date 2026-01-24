@@ -1,3 +1,5 @@
+//added telegram notify code review result on bot detailed information about Review
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
