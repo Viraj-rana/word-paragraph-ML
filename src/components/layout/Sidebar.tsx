@@ -4,6 +4,7 @@ import {
   LayoutDashboard, 
   GitBranch, 
   GitMerge, 
+  GitCompare,
   FileText, 
   Settings,
   Zap
@@ -13,6 +14,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Repository Indexer", href: "/indexer", icon: GitBranch },
   { name: "Merge Review", href: "/review", icon: GitMerge },
+  { name: "Diff Comparison", href: "/diff-compare", icon: GitCompare },
   { name: "Style Guide", href: "/style-guide", icon: FileText },
   { name: "Settings", href: "/settings", icon: Settings },
 ];

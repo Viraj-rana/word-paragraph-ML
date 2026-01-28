@@ -85,6 +85,7 @@ export default function MergeReview() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingMRs, setIsFetchingMRs] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isSendingTelegram, setIsSendingTelegram] = useState(false);
   const [result, setResult] = useState<ReviewResult | null>(null);
   const [openMRs, setOpenMRs] = useState<OpenMR[]>([]);
   const { toast } = useToast();
@@ -169,6 +170,44 @@ export default function MergeReview() {
     }
   };
 
+  const sendTelegramNotification = async (reviewData: ReviewResult) => {
+    setIsSendingTelegram(true);
+    try {
+      const { error } = await supabase.functions.invoke("send-telegram-notification", {
+        body: {
+          mrTitle: reviewData.mrTitle,
+          mrUrl: mrUrl,
+          author: reviewData.author,
+          filesChanged: reviewData.filesChanged,
+          linesAdded: reviewData.linesAdded,
+          linesRemoved: reviewData.linesRemoved,
+          reviewTime: reviewData.reviewTime,
+          status: reviewData.status,
+          issues: reviewData.issues,
+          summary: reviewData.summary,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Failed to send Telegram notification");
+      }
+
+      toast({
+        title: "Telegram notification sent",
+        description: "Review summary has been sent to your Telegram group.",
+      });
+    } catch (error) {
+      console.error("Error sending Telegram notification:", error);
+      toast({
+        title: "Telegram notification failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingTelegram(false);
+    }
+  };
+
   const handleReview = async () => {
     if (!mrUrl) {
       toast({
@@ -225,8 +264,11 @@ export default function MergeReview() {
         description: t("review.reviewCompleteDesc").replace("{count}", String(data.issues?.length || 0)),
       });
 
-      // Automatically send email notification after review completes
-      await sendEmailNotification(data);
+      // Automatically send email and telegram notifications after review completes
+      await Promise.all([
+        sendEmailNotification(data),
+        sendTelegramNotification(data)
+      ]);
     } catch (error) {
       console.error("Error reviewing merge request:", error);
       toast({
