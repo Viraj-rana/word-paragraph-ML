@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -99,12 +99,24 @@ export default function MergeReview() {
     hasTokens 
   } = useTokenStorage();
 
+  const hasAutoReviewed = useRef(false);
+
   // Auto-fetch MRs when tokens are available
   useEffect(() => {
     if (hasTokens) {
       fetchOpenMRs();
     }
   }, [hasTokens, githubToken, gitlabToken]);
+
+  // Auto-review the most recent MR on first fetch
+  useEffect(() => {
+    if (openMRs.length > 0 && !hasAutoReviewed.current) {
+      const firstMR = openMRs[0];
+      setMrUrl(firstMR.url);
+      hasAutoReviewed.current = true;
+      handleReview(firstMR.url);
+    }
+  }, [openMRs]);
 
   const fetchOpenMRs = async () => {
     if (!githubToken && !gitlabToken) return;
@@ -173,14 +185,8 @@ export default function MergeReview() {
   const sendTelegramNotification = async (reviewData: ReviewResult) => {
     setIsSendingTelegram(true);
     try {
-      const backendUrl = import.meta.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL;
-      
-      const response = await fetch(`${backendUrl}/api/send-telegram-notification`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      const { error } = await supabase.functions.invoke("send-telegram-notification", {
+        body: {
           mrTitle: reviewData.mrTitle,
           mrUrl: mrUrl,
           author: reviewData.author,
@@ -191,12 +197,11 @@ export default function MergeReview() {
           status: reviewData.status,
           issues: reviewData.issues,
           summary: reviewData.summary,
-        }),
+        },
       });
-       const result = await response.json();
 
-      if (!response.ok) {
-        throw new Error(result.detail || "Failed to send Telegram notification");
+      if (error) {
+        throw new Error(error.message || "Failed to send Telegram notification");
       }
 
       toast({
@@ -215,8 +220,9 @@ export default function MergeReview() {
     }
   };
 
-  const handleReview = async () => {
-    if (!mrUrl) {
+  const handleReview = async (overrideUrl?: string) => {
+    const urlToReview = overrideUrl || mrUrl;
+    if (!urlToReview) {
       toast({
         title: t("review.mrUrlRequired"),
         description: t("review.mrUrlRequiredDesc"),
@@ -231,16 +237,16 @@ export default function MergeReview() {
     // Determine which token to use based on URL
     let tokenToUse = accessToken;
     if (!tokenToUse) {
-      if (mrUrl.includes("github.com") && githubToken) {
+      if (urlToReview.includes("github.com") && githubToken) {
         tokenToUse = githubToken;
-      } else if (mrUrl.includes("gitlab.com") && gitlabToken) {
+      } else if (urlToReview.includes("gitlab.com") && gitlabToken) {
         tokenToUse = gitlabToken;
       }
     }
     
     try {
       const { data, error } = await supabase.functions.invoke("review-merge-request", {
-        body: { mrUrl, accessToken: tokenToUse || undefined },
+        body: { mrUrl: urlToReview, accessToken: tokenToUse || undefined },
       });
 
       if (error) {
