@@ -107,6 +107,32 @@ serve(async (req) => {
     const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
     const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
 
+    // Debug endpoint: GET request returns bot info and recent updates
+    if (req.method === "GET") {
+      if (!TELEGRAM_BOT_TOKEN) {
+        return new Response(JSON.stringify({ error: "TELEGRAM_BOT_TOKEN not set" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const [meRes, updatesRes] = await Promise.all([
+        fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe`),
+        fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?limit=10`),
+      ]);
+      const [me, updates] = await Promise.all([meRes.json(), updatesRes.json()]);
+      const chatIds = (updates.result || []).map((u: any) => ({
+        chat_id: u.message?.chat?.id || u.my_chat_member?.chat?.id,
+        chat_title: u.message?.chat?.title || u.my_chat_member?.chat?.title,
+        chat_type: u.message?.chat?.type || u.my_chat_member?.chat?.type,
+      })).filter((c: any) => c.chat_id);
+      return new Response(JSON.stringify({ 
+        bot: me, 
+        configured_chat_id: TELEGRAM_CHAT_ID,
+        found_chats: chatIds 
+      }, null, 2), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (!TELEGRAM_BOT_TOKEN) {
       throw new Error("TELEGRAM_BOT_TOKEN is not configured");
     }
