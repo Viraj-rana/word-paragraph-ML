@@ -2,3 +2,15 @@ project_id = "akvsjislylxckdjeixgx"
 
 [functions.send-telegram-notification]
 verify_jwt = false
+
+[functions.review-merge-request]
+verify_jwt = false
+
+[functions.fetch-open-mrs]
+verify_jwt = false
+
+[functions.send-review-email]
+verify_jwt = false
+
+[functions.index-repository]
+verify_jwt = false
