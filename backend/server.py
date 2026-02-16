@@ -58,9 +58,9 @@ class ProjectLLMConfigCreate(BaseModel):
     default_provider: str
 
 class ProjectLLMConfigUpdate(BaseModel):
-    project_name: str = None
-    llm_providers: List[LLMProvider] = None
-    default_provider: str = None
+   project_name: Optional[str] = None
+    llm_providers: Optional[List[LLMProvider]] = None
+    default_provider: Optional[str] = None
 
 # Telegram notification models
 class ReviewIssue(BaseModel):
@@ -100,6 +100,89 @@ async def create_status_check(input: StatusCheckCreate):
 async def get_status_checks():
     status_checks = await db.status_checks.find().to_list(1000)
     return [StatusCheck(**status_check) for status_check in status_checks]
+
+from datetime import datetime
+from typing import List
+
+# LLM Configuration Endpoints
+@api_router.post("/llm-config", response_model=ProjectLLMConfig)
+async def create_llm_config(config: ProjectLLMConfigCreate):
+    """Create or update LLM configuration for a project"""
+    # Check if config already exists for this project
+    existing = await db.llm_configs.find_one({"project_id": config.project_id})
+    
+    if existing:
+        # Update existing config
+        config_dict = config.dict()
+        config_dict["updated_at"] = datetime.utcnow()
+        await db.llm_configs.update_one(
+            {"project_id": config.project_id},
+            {"$set": config_dict}
+        )
+        updated = await db.llm_configs.find_one({"project_id": config.project_id})
+        return ProjectLLMConfig(**updated)
+    else:
+        # Create new config
+        config_obj = ProjectLLMConfig(**config.dict())
+        await db.llm_configs.insert_one(config_obj.dict())
+        return config_obj
+
+
+@api_router.get("/llm-config/{project_id}", response_model=ProjectLLMConfig)
+async def get_llm_config(project_id: str):
+    """Get LLM configuration for a specific project"""
+    config = await db.llm_configs.find_one({"project_id": project_id})
+    if not config:
+        # Return default Gemini configuration
+        default_config = ProjectLLMConfig(
+            project_id=project_id,
+            project_name="Default Project",
+            llm_providers=[
+                LLMProvider(
+                    provider="gemini",
+                    model="gemini-1.5-pro",
+                    api_key="",
+                    enabled=True
+                )
+            ],
+            default_provider="gemini"
+        )
+        return default_config
+    return ProjectLLMConfig(**config)
+
+
+@api_router.get("/llm-config", response_model=List[ProjectLLMConfig])
+async def get_all_llm_configs():
+    """Get all LLM configurations"""
+    configs = await db.llm_configs.find().to_list(1000)
+    return [ProjectLLMConfig(**config) for config in configs]
+
+
+@api_router.put("/llm-config/{project_id}", response_model=ProjectLLMConfig)
+async def update_llm_config(project_id: str, update: ProjectLLMConfigUpdate):
+    """Update LLM configuration for a project"""
+    update_dict = {k: v for k, v in update.dict().items() if v is not None}
+    update_dict["updated_at"] = datetime.utcnow()
+    
+    await db.llm_configs.update_one(
+        {"project_id": project_id},
+        {"$set": update_dict}
+    )
+    
+    updated = await db.llm_configs.find_one({"project_id": project_id})
+    if not updated:
+        raise HTTPException(status_code=404, detail="Configuration not found")
+    return ProjectLLMConfig(**updated)
+
+
+@api_router.delete("/llm-config/{project_id}")
+async def delete_llm_config(project_id: str):
+    """Delete LLM configuration for a project"""
+    result = await db.llm_configs.delete_one({"project_id": project_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Configuration not found")
+    return {"message": "Configuration deleted successfully"}
+
 
 # Telegram notification helper functions
 def get_status_emoji(status: str) -> str:
