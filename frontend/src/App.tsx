@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import RepositoryIndexer from "./pages/RepositoryIndexer";
 import MergeReview from "./pages/MergeReview";
 import DiffComparison from "./pages/DiffComparison";
+import CodeDiff from "./pages/CodeDiff";
 import StyleGuide from "./pages/StyleGuide";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/indexer" element={<RepositoryIndexer />} />
             <Route path="/review" element={<MergeReview />} />
             <Route path="/diff-compare" element={<DiffComparison />} />
+             <Route path="/code-diff" element={<CodeDiff />} />
             <Route path="/style-guide" element={<StyleGuide />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
