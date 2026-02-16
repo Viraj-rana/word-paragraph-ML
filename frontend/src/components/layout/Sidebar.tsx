@@ -5,6 +5,7 @@ import {
   GitBranch, 
   GitMerge, 
   GitCompare,
+  Code2,
   FileText, 
   Settings,
   Zap
@@ -15,6 +16,7 @@ const navigation = [
   { name: "Repository Indexer", href: "/indexer", icon: GitBranch },
   { name: "Merge Review", href: "/review", icon: GitMerge },
   { name: "Diff Comparison", href: "/diff-compare", icon: GitCompare },
+   { name: "Code Diff", href: "/code-diff", icon: Code2 },
   { name: "Style Guide", href: "/style-guide", icon: FileText },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
