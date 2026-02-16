@@ -36,6 +36,32 @@ class StatusCheck(BaseModel):
 class StatusCheckCreate(BaseModel):
     client_name: str
 
+class LLMProvider (BaseModel):
+    provider: str  # \"gemini\", \"openai\", \"anthropic\"
+    model: str     # \"gemini-1.5-pro\", \"gpt-4\", \"claude-3-sonnet\", etc.
+    api_key: str
+    enabled: bool = True
+
+class ProjectLLMConfig(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    project_id: str
+    project_name: str
+    llm_providers: List[LLMProvider]
+    default_provider: str  # which provider to use by default
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ProjectLLMConfigCreate(BaseModel):
+    project_id: str
+    project_name: str
+    llm_providers: List[LLMProvider]
+    default_provider: str
+
+class ProjectLLMConfigUpdate(BaseModel):
+    project_name: str = None
+    llm_providers: List[LLMProvider] = None
+    default_provider: str = None
+
 # Telegram notification models
 class ReviewIssue(BaseModel):
     id: str
