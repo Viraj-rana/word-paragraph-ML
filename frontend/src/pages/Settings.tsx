@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTokenStorage } from "@/hooks/useTokenStorage";
+import { LLMConfiguration } from "@/components/settings/LLMConfiguration";
 
 export default function Settings() {
   const { 
