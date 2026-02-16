@@ -163,6 +163,11 @@ export default function Settings() {
               <GitBranch className="h-4 w-4" />
               Integrations
             </TabsTrigger>
+
+            <TabsTrigger value=\"llm\" className=\"gap-2\">
+              <Key className=\"h-4 w-4\" />
+              LLM Models
+            </TabsTrigger>
             <TabsTrigger value="review" className="gap-2">
               <Shield className="h-4 w-4" />
               Review Settings
@@ -311,6 +316,10 @@ export default function Settings() {
             </Card>
           </TabsContent>
 
+          <TabsContent value=\"llm\" className=\"space-y-6\">
+            <LLMConfiguration />
+          </TabsContent>
+          
           <TabsContent value="review" className="space-y-6">
             <Card glow>
               <CardHeader>
