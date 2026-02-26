@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { LLMConfiguration } from "@/components/settings/LLMConfiguration";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -164,8 +165,8 @@ export default function Settings() {
               Integrations
             </TabsTrigger>
 
-            <TabsTrigger value=\"llm\" className=\"gap-2\">
-              <Key className=\"h-4 w-4\" />
+            <TabsTrigger value="llm" className="gap-2">
+              <Key className="h-4 w-4" />
               LLM Models
             </TabsTrigger>
             <TabsTrigger value="review" className="gap-2">
@@ -316,7 +317,7 @@ export default function Settings() {
             </Card>
           </TabsContent>
 
-          <TabsContent value=\"llm\" className=\"space-y-6\">
+          <TabsContent value="llm" className="space-y-6">
             <LLMConfiguration />
           </TabsContent>
           
