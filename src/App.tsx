@@ -4,13 +4,16 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { lazy, Suspense } from "react";
 import Dashboard from "./pages/Dashboard";
-import RepositoryIndexer from "./pages/RepositoryIndexer";
-import MergeReview from "./pages/MergeReview";
-import DiffComparison from "./pages/DiffComparison";
-import StyleGuide from "./pages/StyleGuide";
-import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+
+const RepositoryIndexer = lazy(() => import("./pages/RepositoryIndexer"));
+const MergeReview = lazy(() => import("./pages/MergeReview"));
+const DiffComparison = lazy(() => import("./pages/DiffComparison"));
+const StyleGuide = lazy(() => import("./pages/StyleGuide"));
+const Settings = lazy(() => import("./pages/Settings"));
 
 const queryClient = new QueryClient();
 
@@ -21,15 +24,19 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/indexer" element={<RepositoryIndexer />} />
-            <Route path="/review" element={<MergeReview />} />
-            <Route path="/diff-compare" element={<DiffComparison />} />
-            <Route path="/style-guide" element={<StyleGuide />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <ErrorBoundary>
+            <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center text-foreground">Loading...</div>}>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/indexer" element={<ErrorBoundary><RepositoryIndexer /></ErrorBoundary>} />
+                <Route path="/review" element={<ErrorBoundary><MergeReview /></ErrorBoundary>} />
+                <Route path="/diff-compare" element={<ErrorBoundary><DiffComparison /></ErrorBoundary>} />
+                <Route path="/style-guide" element={<StyleGuide />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </ErrorBoundary>
         </BrowserRouter>
       </TooltipProvider>
     </LanguageProvider>
