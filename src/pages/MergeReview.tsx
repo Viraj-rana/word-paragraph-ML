@@ -77,7 +77,7 @@ const severityConfig = {
     label: "Info",
   },
 };
-
+//merge review function
 export default function MergeReview() {
   const { t } = useLanguage();
   const [mrUrl, setMrUrl] = useState("");

@@ -66,7 +66,7 @@ export default function DiffComparison() {
       return { platform: "github", owner: githubMatch[1], repo: githubMatch[2], mrNumber: githubMatch[3] };
     }
     
-    // GitLab: https://gitlab.com/owner/repo/-/merge_requests/123
+    // GitLab: https://gitlab.com/owner/repo/-/merge_requests/123  //example value
     const gitlabMatch = url.match(/gitlab\.com\/([^\/]+)\/([^\/]+)\/-\/merge_requests\/(\d+)/);
     if (gitlabMatch) {
       return { platform: "gitlab", owner: gitlabMatch[1], repo: gitlabMatch[2], mrNumber: gitlabMatch[3] };

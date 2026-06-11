@@ -1,4 +1,4 @@
-// Index
+// Index file
 import Dashboard from "./Dashboard";
 
 const Index = () => {

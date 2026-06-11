@@ -10,7 +10,7 @@ interface LanguageContextType {
 
 const translations: Record<Language, Record<string, string>> = {
   en: {
-    // Repository Indexer
+    // repository Indexer
     "indexer.title": "Repository Indexer",
     "indexer.description": "Analyze a repository and generate a comprehensive README file.",
     "indexer.repoDetails": "Repository Details",
@@ -41,7 +41,7 @@ const translations: Record<Language, Record<string, string>> = {
     "indexer.copiedToClipboard": "Copied to clipboard",
     "indexer.copiedDesc": "README content has been copied.",
     
-    // Merge Review
+    // merge Review
     "review.title": "Merge Request Review",
     "review.description": "Analyze merge requests against your style guide and best practices.",
     "review.config": "Review Configuration",

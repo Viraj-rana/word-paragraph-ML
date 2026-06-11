@@ -15,7 +15,7 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {/* Stats Grid */}
+        {/* stats of Grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <StatsCard
             title="Total Reviews"
